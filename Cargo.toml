@@ -1,0 +1,11 @@
+[package]
+name = "macfan"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ratatui = "0.30"
+
+[profile.release]
+lto = true
+strip = true
