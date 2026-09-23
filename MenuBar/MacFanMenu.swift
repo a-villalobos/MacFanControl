@@ -396,7 +396,6 @@ struct ContentView: View {
                                 set: { model.updatePercentDraft(selectedFans, value: $0) }
                             ),
                             in: 0...100,
-                            step: 1,
                             onEditingChanged: { active in
                                 if !active {
                                     model.applyPercent(model.percentDraft(for: selectedFans), to: selectedFans)
