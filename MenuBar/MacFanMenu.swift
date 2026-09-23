@@ -350,8 +350,8 @@ struct ContentView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
