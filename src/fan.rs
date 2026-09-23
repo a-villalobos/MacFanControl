@@ -32,18 +32,19 @@ fn read_rpm(smc: &Smc, k: &str) -> Option<f32> {
 
 fn fan_name(smc: &Smc, index: u32, count: u32) -> String {
     if let Ok(v) = smc.read(&key(index, "ID"))
-        && v.size >= 16 {
-            let name: String = v.bytes[4..16]
-                .iter()
-                .take_while(|&&b| b != 0)
-                .map(|&b| b as char)
-                .filter(|c| c.is_ascii_graphic() || *c == ' ')
-                .collect();
-            let name = name.trim().to_string();
-            if !name.is_empty() {
-                return name;
-            }
+        && v.size >= 16
+    {
+        let name: String = v.bytes[4..16]
+            .iter()
+            .take_while(|&&b| b != 0)
+            .map(|&b| b as char)
+            .filter(|c| c.is_ascii_graphic() || *c == ' ')
+            .collect();
+        let name = name.trim().to_string();
+        if !name.is_empty() {
+            return name;
         }
+    }
     if count == 2 {
         return [String::from("Left Fan"), String::from("Right Fan")][index as usize].clone();
     }
@@ -137,7 +138,9 @@ pub fn encode_rpm(smc: &Smc, k: &str, rpm: f32) -> Result<Vec<u8>, SmcError> {
     let info = smc.key_info(crate::smc::fourcc(k)?)?;
     match fourcc_str(info.data_type).as_str() {
         "flt " => Ok(rpm.to_le_bytes().to_vec()),
-        "fpe2" => Ok(((rpm.clamp(0.0, 16383.0) * 4.0) as u16).to_be_bytes().to_vec()),
+        "fpe2" => Ok(((rpm.clamp(0.0, 16383.0) * 4.0) as u16)
+            .to_be_bytes()
+            .to_vec()),
         _ => Err(SmcError::BadData),
     }
 }

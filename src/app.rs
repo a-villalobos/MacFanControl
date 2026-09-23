@@ -76,9 +76,11 @@ impl App {
     ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
             if self.drain_notes() {
-                return Err("fan control thread stopped unexpectedly; its safety guard restored \
+                return Err(
+                    "fan control thread stopped unexpectedly; its safety guard restored \
                             automatic control — verify with `macfan --list`"
-                    .into());
+                        .into(),
+                );
             }
             if self.needs_refresh || self.last_refresh.elapsed() >= Duration::from_secs(1) {
                 self.refresh();
@@ -91,9 +93,11 @@ impl App {
             terminal.draw(|frame| crate::ui::draw(frame, self))?;
             if event::poll(Duration::from_millis(100))?
                 && let Event::Key(k) = event::read()?
-                    && k.kind == KeyEventKind::Press && self.on_key(k) {
-                        break;
-                    }
+                && k.kind == KeyEventKind::Press
+                && self.on_key(k)
+            {
+                break;
+            }
         }
         self.controller.send(if self.keep_on_exit {
             Cmd::QuitKeep

@@ -30,11 +30,12 @@ fn model_name() -> String {
 fn print_help() {
     println!("macfan — control Mac fan speed from the terminal");
     println!();
-    println!("usage: macfan [--list | --auto | --help]");
+    println!("usage: macfan [--list | --auto | --set INDEX RPM | --help]");
     println!();
     println!("  (no args)   launch the TUI (sudo required to change speeds)");
     println!("  --list      print fans and temperatures, then exit");
     println!("  --auto      restore all fans to automatic control, then exit");
+    println!("  --set       set one fan's manual target RPM (requires sudo)");
     println!();
     println!("TUI keys: ↑↓ select fan, ←→ ±100 RPM, shift←→ ±500, m manual/auto,");
     println!("          a all auto, f full blast, space toggle linked fans,");
@@ -46,11 +47,13 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         print_help();
         return Ok(());
     }
-    if let Some(arg) = args
-        .iter()
-        .find(|a| !matches!(a.as_str(), "--list" | "--auto"))
-    {
-        return Err(format!("unknown argument '{arg}' (try --help)").into());
+    let set = args.iter().position(|a| a == "--set");
+    for (index, arg) in args.iter().enumerate() {
+        let allowed = matches!(arg.as_str(), "--list" | "--auto")
+            || set.is_some_and(|i| index == i || index == i + 1 || index == i + 2);
+        if !allowed {
+            return Err(format!("unknown argument '{arg}' (try --help)").into());
+        }
     }
 
     let smc = smc::Smc::open()?;
@@ -61,7 +64,9 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 
     if args.iter().any(|a| a == "--auto") {
         if !smc::is_root() {
-            return Err("restoring automatic fan control requires root — run: sudo macfan --auto".into());
+            return Err(
+                "restoring automatic fan control requires root — run: sudo macfan --auto".into(),
+            );
         }
         let problems = control::force_auto(&smc, &fans);
         if problems.is_empty() {
@@ -69,6 +74,20 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
         return Err(problems.join("; ").into());
+    }
+
+    if let Some(i) = set {
+        if i + 2 >= args.len() {
+            return Err("--set requires INDEX and RPM".into());
+        }
+        if !smc::is_root() {
+            return Err("setting fan speed requires root — run with sudo".into());
+        }
+        let index: usize = args[i + 1].parse()?;
+        let rpm: f32 = args[i + 2].parse()?;
+        control::set_once(fans, index, rpm).map_err(|e| Box::<dyn std::error::Error>::from(e))?;
+        println!("fan {index} target set to {rpm:.0} RPM");
+        return Ok(());
     }
 
     if args.iter().any(|a| a == "--list") {
