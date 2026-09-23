@@ -105,9 +105,11 @@ final class FanModel: ObservableObject {
             DispatchQueue.main.async {
                 self.isWorking = false
                 if result.status != 0 {
-                    self.authorizationMessage = "Authorization failed. Try again."
+                    self.authorizationMessage = nil
+                    self.errorMessage = "Authorization failed. Click the lock to try again."
                 } else {
                     self.authorized = true
+                    self.errorMessage = nil
                     self.authorizationMessage = nil
                     self.checkAuthorization()
                 }
@@ -315,11 +317,12 @@ struct ContentView: View {
                         Button { model.authorize() } label: {
                             Image(systemName: model.authorized ? "lock.open" : "lock")
                                 .font(.caption)
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(model.authorized ? .green : .orange)
-                        .accessibilityLabel("Re-authorize fan controls")
-                        .help("Re-authorize fan controls")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(model.authorized ? .green : .orange)
+                .accessibilityLabel(model.authorized ? "Authorization active" : "Authorization required")
+                .accessibilityValue("Click to \(model.authorized ? "re-authorize" : "authorize") fan controls")
+                .help(model.authorized ? "Authorization active · click to re-authorize" : "Authorization required · click to authorize")
                         Spacer()
                         if model.isWorking {
                             Image(systemName: "arrow.triangle.2.circlepath")
@@ -348,25 +351,6 @@ struct ContentView: View {
                 }
             }
             Divider()
-            if !model.authorized {
-                HStack(spacing: 8) {
-                    Image(systemName: "lock.circle")
-                        .foregroundStyle(.orange)
-                    Text("Authorization required")
-                        .font(.caption.weight(.medium))
-                    Spacer()
-                    Button(model.authorizationMessage == nil ? "Enable" : "Try Again") { model.authorize() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 14)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(.orange.opacity(0.25), lineWidth: 0.5)
-                }
-            }
             if let error = model.errorMessage {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.caption)
@@ -432,11 +416,6 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
-            }
-            if let message = model.authorizationMessage {
-                Text(message)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
             }
             .padding(16)
