@@ -30,10 +30,11 @@ fn model_name() -> String {
 fn print_help() {
     println!("macfan — control Mac fan speed from the terminal");
     println!();
-    println!("usage: macfan [--list | --auto | --set INDEX RPM | --help]");
+    println!("usage: macfan [--list | --json | --auto | --set INDEX RPM | --help]");
     println!();
     println!("  (no args)   launch the TUI (sudo required to change speeds)");
     println!("  --list      print fans and temperatures, then exit");
+    println!("  --json      print fan and temperature data as JSON, then exit");
     println!("  --auto      restore all fans to automatic control, then exit");
     println!("  --set       set one fan's manual target RPM (requires sudo)");
     println!();
@@ -49,7 +50,7 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
     let set = args.iter().position(|a| a == "--set");
     for (index, arg) in args.iter().enumerate() {
-        let allowed = matches!(arg.as_str(), "--list" | "--auto")
+        let allowed = matches!(arg.as_str(), "--list" | "--json" | "--auto")
             || set.is_some_and(|i| index == i || index == i + 1 || index == i + 2);
         if !allowed {
             return Err(format!("unknown argument '{arg}' (try --help)").into());
@@ -115,6 +116,49 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             ),
             None => println!("  temps: no readable sensors"),
         }
+        return Ok(());
+    }
+
+    if args.iter().any(|a| a == "--json") {
+        let temps = temps::Temps::discover(&smc);
+        let model = model_name();
+        let fan_json = fans
+            .iter()
+            .map(|fan| {
+                let mode = match fan.mode {
+                    fan::FanMode::Manual => "MANUAL",
+                    fan::FanMode::System => "SYSTEM",
+                    fan::FanMode::Auto => "AUTO",
+                };
+                format!(
+                    "{{\"id\":{},\"name\":\"{}\",\"actual\":{:.0},\"target\":{:.0},\"min\":{:.0},\"max\":{:.0},\"mode\":\"{}\"}}",
+                    fan.index,
+                    fan.name.replace('"', "\\\""),
+                    fan.actual,
+                    fan.target,
+                    fan.min,
+                    fan.max,
+                    mode
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let thermal = match &temps.hottest {
+            Some((sensor, hottest)) => format!(
+                "{{\"average\":{:.1},\"hottest\":{:.1},\"sensor\":\"{}\",\"count\":{}}}",
+                temps.avg,
+                hottest,
+                sensor.replace('"', "\\\""),
+                temps.sensor_count()
+            ),
+            None => "null".into(),
+        };
+        println!(
+            "{{\"model\":\"{}\",\"fans\":[{}],\"thermal\":{}}}",
+            model.replace('"', "\\\""),
+            fan_json,
+            thermal
+        );
         return Ok(());
     }
 
