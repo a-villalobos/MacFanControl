@@ -121,6 +121,9 @@ final class FanModel: ObservableObject {
             DispatchQueue.main.async {
                 self.fans = telemetry?.fans ?? []
                 self.thermal = telemetry?.thermal
+                for fan in self.fans where fan.mode == "AUTO" {
+                    self.percentDrafts[fan.id] = 0
+                }
                 self.errorMessage = telemetry == nil ? "Unable to read fan telemetry." : nil
             }
         }
@@ -178,6 +181,9 @@ final class FanModel: ObservableObject {
     }
 
     func automatic() {
+        for fan in fans {
+            percentDrafts[fan.id] = 0
+        }
         isWorking = true
         DispatchQueue.global(qos: .userInitiated).async {
             let helper = Self.runStatus("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "auto"])
