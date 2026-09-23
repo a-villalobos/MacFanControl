@@ -372,6 +372,9 @@ final class FanStatusView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        setAccessibilityLabel("Mac Fan")
         imageView.image = NSImage(systemSymbolName: "fanblades", accessibilityDescription: "Mac Fan")
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.contentTintColor = .labelColor
@@ -417,6 +420,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.start()
         spinTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
             guard let self else { return }
+            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                self.iconAngle = 0
+                self.statusView.angle = 0
+                return
+            }
             let rpm = self.model.fans.map(\.actual).max() ?? 0
             if rpm > 0 {
                 let duration = max(0.45, 1.8 - (Double(rpm) / 6800.0) * 1.35)
