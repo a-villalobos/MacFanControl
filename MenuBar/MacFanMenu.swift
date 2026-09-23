@@ -442,12 +442,13 @@ private struct ToolbarFanGlyph: View {
     @ObservedObject var model: FanModel
 
     var body: some View {
+        let rpm = model.fans.map(\.actual).max() ?? 0
         FanGlyph(
-            isRunning: model.fans.map(\.actual).max() ?? 0 > 0,
-            rpm: model.fans.map(\.actual).max() ?? 0,
+            isRunning: rpm > 0,
+            rpm: rpm,
             size: 16
         )
-        .tint(model.thermal?.color ?? .secondary)
+        .tint(rpm > 0 ? (model.thermal?.color ?? .secondary) : .primary)
     }
 }
 
