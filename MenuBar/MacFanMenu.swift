@@ -259,7 +259,8 @@ struct ContentView: View {
     let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Mac Fan")
@@ -355,9 +356,10 @@ struct ContentView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            }
+            .padding(16)
         }
-        .padding(16)
-        .frame(width: 370)
+        .frame(width: 370, height: 430)
     }
 }
 
