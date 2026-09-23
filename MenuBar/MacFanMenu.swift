@@ -363,34 +363,37 @@ struct ContentView: View {
     }
 }
 
-final class FanStatusView: NSView {
-    private let imageView = NSImageView()
-    var onClick: (() -> Void)?
-    var angle: CGFloat = 0 {
-        didSet {
-            // Rotate the glyph itself so it spins in place around its center.
-            imageView.layer?.setAffineTransform(CGAffineTransform(rotationAngle: angle))
-        }
-    }
+private struct ToolbarFanGlyph: View {
+    @ObservedObject var model: FanModel
 
-    override init(frame frameRect: NSRect) {
+    var body: some View {
+        FanGlyph(
+            isRunning: model.fans.map(\.actual).max() ?? 0 > 0,
+            rpm: model.fans.map(\.actual).max() ?? 0,
+            size: 16
+        )
+        .tint(.primary)
+    }
+}
+
+final class FanStatusView: NSView {
+    private let hostingView: NSHostingView<ToolbarFanGlyph>
+    var onClick: (() -> Void)?
+
+    init(model: FanModel, frame frameRect: NSRect) {
+        hostingView = NSHostingView(rootView: ToolbarFanGlyph(model: model))
         super.init(frame: frameRect)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel("Mac Fan")
-        imageView.image = NSImage(systemSymbolName: "fanblades", accessibilityDescription: "Mac Fan")
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.contentTintColor = .labelColor
-        imageView.wantsLayer = true
-        addSubview(imageView)
+        addSubview(hostingView)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override func layout() {
         super.layout()
-        imageView.frame = bounds.insetBy(dx: 3, dy: 3)
-        imageView.layer?.position = CGPoint(x: imageView.frame.midX, y: imageView.frame.midY)
+        hostingView.frame = bounds
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -403,14 +406,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusView: FanStatusView!
     private var popover: NSPopover!
     private let model = FanModel()
-    private var spinTimer: Timer?
-    private var iconAngle: CGFloat = 0
-    private var lastSpin = Date()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusView = FanStatusView(frame: NSRect(x: 0, y: 0, width: 22, height: 22))
+        statusView = FanStatusView(model: model, frame: NSRect(x: 0, y: 0, width: 22, height: 22))
         statusView.onClick = { [weak self] in self?.togglePopover() }
         statusItem.view = statusView
         popover = NSPopover()
@@ -421,26 +421,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
         })
         model.start()
-        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                self.iconAngle = 0
-                self.statusView.angle = 0
-                return
-            }
-            let rpm = self.model.fans.map(\.actual).max() ?? 0
-            if rpm > 0 {
-                let duration = max(0.45, 1.8 - (Double(rpm) / 6800.0) * 1.35)
-                let elapsed = Date().timeIntervalSince(self.lastSpin)
-                self.lastSpin = Date()
-                self.iconAngle += CGFloat((elapsed / duration) * 2.0 * Double.pi)
-                self.statusView.angle = self.iconAngle
-            } else {
-                self.iconAngle = 0
-                self.lastSpin = Date()
-                self.statusView.angle = 0
-            }
-        }
     }
 
     @objc private func togglePopover() {
