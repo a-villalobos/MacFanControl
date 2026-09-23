@@ -76,6 +76,7 @@ macfan            launch the TUI (sudo required to change speeds)
 macfan --list     print fans and temperatures, then exit
 macfan --auto     restore all fans to automatic control, then exit
 macfan --help     show help
+macfan --version  print version, then exit
 ```
 
 `macfan --list` works without sudo:

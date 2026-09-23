@@ -30,7 +30,7 @@ fn model_name() -> String {
 fn print_help() {
     println!("macfan — control Mac fan speed from the terminal");
     println!();
-    println!("usage: macfan [--list | --auto | --help]");
+    println!("usage: macfan [--list | --auto | --help | --version]");
     println!();
     println!("  (no args)   launch the TUI (sudo required to change speeds)");
     println!("  --list      print fans and temperatures, then exit");
@@ -44,6 +44,10 @@ fn print_help() {
 fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     if args.iter().any(|a| a == "--help" || a == "-h") {
         print_help();
+        return Ok(());
+    }
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("macfan {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     if let Some(arg) = args
