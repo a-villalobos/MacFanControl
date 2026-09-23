@@ -125,9 +125,6 @@ final class FanModel: ObservableObject {
             DispatchQueue.main.async {
                 self.fans = telemetry?.fans ?? []
                 self.thermal = telemetry?.thermal
-                for fan in self.fans where fan.mode == "AUTO" {
-                    self.percentDrafts[fan.id] = 0
-                }
                 self.errorMessage = telemetry == nil ? "Unable to read fan telemetry." : nil
                 self.checkAuthorization()
             }
