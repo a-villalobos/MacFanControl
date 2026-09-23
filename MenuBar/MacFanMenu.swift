@@ -445,7 +445,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             popover.performClose(nil)
         } else {
-            popover.show(relativeTo: statusView.bounds, of: statusView, preferredEdge: .minY)
+            // Keep a small breathing gap below the menu bar, matching native macOS popovers.
+            let anchor = statusView.bounds.offsetBy(dx: 0, dy: -6)
+            popover.show(relativeTo: anchor, of: statusView, preferredEdge: .minY)
             popover.contentViewController?.view.window?.becomeKey()
         }
     }
