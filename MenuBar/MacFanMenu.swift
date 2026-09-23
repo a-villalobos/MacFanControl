@@ -34,20 +34,30 @@ struct FanGlyph: View {
     let isRunning: Bool
     let rpm: Int
     let size: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            let seconds = timeline.date.timeIntervalSinceReferenceDate
-            let duration = max(0.45, 1.8 - (Double(rpm) / 6800.0) * 1.35)
-            let phase = isRunning ? (seconds.truncatingRemainder(dividingBy: duration) / duration) * 360.0 : 0
-            Image(systemName: "fanblades")
-                .font(.system(size: size, weight: .medium))
-                .rotationEffect(.degrees(phase))
-                .foregroundStyle(.tint)
-                .animation(.easeOut(duration: 0.2), value: isRunning)
+        Group {
+            if reduceMotion {
+                icon(phase: 0)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                    let seconds = timeline.date.timeIntervalSinceReferenceDate
+                    let duration = max(0.45, 1.8 - (Double(rpm) / 6800.0) * 1.35)
+                    let phase = isRunning ? (seconds.truncatingRemainder(dividingBy: duration) / duration) * 360.0 : 0
+                    icon(phase: phase)
+                }
+            }
         }
         .frame(width: size + 6, height: size + 6)
         .accessibilityLabel(isRunning ? "Fan running" : "Fan stopped")
+    }
+
+    private func icon(phase: Double) -> some View {
+        Image(systemName: "fanblades")
+            .font(.system(size: size, weight: .medium))
+            .rotationEffect(.degrees(phase), anchor: .center)
+            .foregroundStyle(.tint)
     }
 }
 
@@ -63,6 +73,7 @@ final class FanModel: ObservableObject {
     @Published var drafts: [Int: Double] = [:]
     @Published var authorized = false
     @Published var authorizationMessage: String?
+    @Published var errorMessage: String?
     private let binary = "/Users/alexis/bin/macfan"
     private var timer: Timer?
 
@@ -108,6 +119,7 @@ final class FanModel: ObservableObject {
             DispatchQueue.main.async {
                 self.fans = telemetry?.fans ?? []
                 self.thermal = telemetry?.thermal
+                self.errorMessage = telemetry == nil ? "Unable to read fan telemetry." : nil
             }
         }
     }
@@ -116,10 +128,13 @@ final class FanModel: ObservableObject {
         drafts[fan.id] = Double(rpm)
         isWorking = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Self.run("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "set", "\(fan.id)", "\(rpm)"]) ?? ""
-            if result.contains("password is required") {
+            let helper = Self.runStatus("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "set", "\(fan.id)", "\(rpm)"])
+            if helper.status != 0 {
                 let script = "do shell script \"\(self.binary) --set \(fan.id) \(rpm)\" with administrator privileges"
-                _ = Self.run("/usr/bin/osascript", ["-e", script])
+                let fallback = Self.runStatus("/usr/bin/osascript", ["-e", script])
+                if fallback.status != 0 {
+                    DispatchQueue.main.async { self.errorMessage = "Fan change was not authorized." }
+                }
             }
             DispatchQueue.main.async {
                 self.isWorking = false
@@ -140,10 +155,13 @@ final class FanModel: ObservableObject {
     func automatic() {
         isWorking = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Self.run("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "auto"]) ?? ""
-            if result.contains("password is required") {
+            let helper = Self.runStatus("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "auto"])
+            if helper.status != 0 {
                 let script = "do shell script \"\(self.binary) --auto\" with administrator privileges"
-                _ = Self.run("/usr/bin/osascript", ["-e", script])
+                let fallback = Self.runStatus("/usr/bin/osascript", ["-e", script])
+                if fallback.status != 0 {
+                    DispatchQueue.main.async { self.errorMessage = "Automatic restore was not authorized." }
+                }
             }
             DispatchQueue.main.async {
                 self.isWorking = false
@@ -154,6 +172,10 @@ final class FanModel: ObservableObject {
     }
 
     private static func run(_ path: String, _ arguments: [String]) -> String? {
+        runStatus(path, arguments).output
+    }
+
+    private static func runStatus(_ path: String, _ arguments: [String]) -> (status: Int32, output: String?) {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: path)
@@ -163,8 +185,9 @@ final class FanModel: ObservableObject {
         do {
             try process.run()
             process.waitUntilExit()
-            return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
-        } catch { return nil }
+            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
+            return (process.terminationStatus, output)
+        } catch { return (-1, nil) }
     }
 
 }
@@ -210,6 +233,8 @@ struct FanRow: View {
                     }
                 )
                 .tint(fan.mode == "MANUAL" ? .orange : .blue)
+                .accessibilityLabel("\(fan.name) target speed")
+                .accessibilityValue("\(Int(model.draft(for: fan).rounded())) RPM")
                 Text("\(Int(model.draft(for: fan).rounded()))")
                     .font(.system(.caption, design: .rounded).weight(.semibold))
                     .frame(width: 48, alignment: .trailing)
@@ -271,6 +296,7 @@ struct ContentView: View {
                 Spacer()
                 Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Refresh fan telemetry")
                     .help("Refresh")
             }
             if let thermal = model.thermal {
@@ -295,6 +321,11 @@ struct ContentView: View {
                         .controlSize(.small)
                 }
                 .padding(.vertical, 4)
+            }
+            if let error = model.errorMessage {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.red)
             }
             ForEach(model.fans) { fan in
                 FanRow(fan: fan, model: model)
