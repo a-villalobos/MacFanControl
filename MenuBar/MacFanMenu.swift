@@ -267,10 +267,8 @@ struct FanCard: View {
                     .trim(from: 0, to: min(1, max(0, Double(fan.actual) / Double(max(fan.max, 1)))))
                     .stroke(fan.mode == "MANUAL" ? .orange : .blue, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Circle()
-                    .stroke(selected ? .blue.opacity(0.9) : .clear, lineWidth: 2)
-                    .padding(-6)
                 FanGlyph(isRunning: fan.actual > 0, rpm: fan.actual, size: 25)
+                    .tint(selected ? .blue : .secondary)
             }
             .frame(width: 76, height: 76)
             Text(fan.name.replacingOccurrences(of: " Fan", with: ""))
