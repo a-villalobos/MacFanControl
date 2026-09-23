@@ -432,7 +432,7 @@ struct ContentView: View {
             }
             .padding(16)
         }
-        .frame(width: 370, height: 430)
+        .frame(width: 370, height: 390)
     }
 
     private var selectedFans: [FanReading] {
@@ -493,7 +493,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 370, height: 430)
+        popover.contentSize = NSSize(width: 370, height: 390)
         popover.contentViewController = NSHostingController(rootView: ContentView(model: model) {
             self.popover.performClose(nil)
         })
