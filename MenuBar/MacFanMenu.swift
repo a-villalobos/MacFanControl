@@ -75,6 +75,7 @@ final class FanModel: ObservableObject {
     @Published var authorized = false
     @Published var authorizationMessage: String?
     @Published var errorMessage: String?
+    @Published var authorizationHovering = false
     // nil means all fans are selected by default; a set tracks explicit toggles.
     @Published var selectedFanIDs: Set<Int>?
     private let binary = "/Users/alexis/bin/macfan"
@@ -319,10 +320,19 @@ struct ContentView: View {
                                 .font(.caption)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(model.authorized ? .green : .orange)
-                .accessibilityLabel(model.authorized ? "Authorization active" : "Authorization required")
-                .accessibilityValue("Click to \(model.authorized ? "re-authorize" : "authorize") fan controls")
-                .help(model.authorized ? "Authorization active · click to re-authorize" : "Authorization required · click to authorize")
+                        .foregroundStyle(model.authorized ? .green : .orange)
+                        .accessibilityLabel(model.authorized ? "Authorization active" : "Authorization required")
+                        .accessibilityValue("Click to \(model.authorized ? "re-authorize" : "authorize") fan controls")
+                        .help(model.authorized ? "Authorization active · click to re-authorize" : "Authorization required · click to authorize")
+                        .onHover { hovering in
+                            model.authorizationHovering = hovering
+                        }
+                        if model.authorizationHovering {
+                            Text(model.authorized ? "Authorized" : "Needs authorization")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(model.authorized ? .green : .orange)
+                                .transition(.opacity)
+                        }
                         Spacer()
                         if model.isWorking {
                             Image(systemName: "arrow.triangle.2.circlepath")
