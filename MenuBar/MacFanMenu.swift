@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-struct FanReading: Identifiable {
+struct FanReading: Identifiable, Codable {
     let id: Int
     let name: String
     let actual: Int
@@ -11,7 +11,7 @@ struct FanReading: Identifiable {
     let mode: String
 }
 
-struct ThermalSummary {
+struct ThermalSummary: Codable {
     let average: Double
     let hottest: Double
     let sensor: String
@@ -49,6 +49,11 @@ struct FanGlyph: View {
         .frame(width: size + 6, height: size + 6)
         .accessibilityLabel(isRunning ? "Fan running" : "Fan stopped")
     }
+}
+
+private struct Telemetry: Codable {
+    let fans: [FanReading]
+    let thermal: ThermalSummary?
 }
 
 final class FanModel: ObservableObject {
@@ -98,12 +103,11 @@ final class FanModel: ObservableObject {
 
     func refresh() {
         DispatchQueue.global(qos: .userInitiated).async { [binary] in
-            let output = Self.run(binary, ["--list"]) ?? ""
-            let fans = Self.parse(output)
-            let thermal = Self.parseThermal(output)
+            let output = Self.run(binary, ["--json"]) ?? ""
+            let telemetry = try? JSONDecoder().decode(Telemetry.self, from: Data(output.utf8))
             DispatchQueue.main.async {
-                self.fans = fans
-                self.thermal = thermal
+                self.fans = telemetry?.fans ?? []
+                self.thermal = telemetry?.thermal
             }
         }
     }
@@ -163,34 +167,6 @@ final class FanModel: ObservableObject {
         } catch { return nil }
     }
 
-    private static func parse(_ output: String) -> [FanReading] {
-        let pattern = #"^\s*(.+?)\s+(\d+) RPM\s+target\s+(\d+)\s+range\s+(\d+)[–-](\d+)\s+\[(\w+)\]"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .anchorsMatchLines) else { return [] }
-        return regex.matches(in: output, range: NSRange(output.startIndex..., in: output)).enumerated().compactMap { index, match in
-            func value(_ n: Int) -> String? {
-                guard let range = Range(match.range(at: n), in: output) else { return nil }
-                return String(output[range]).trimmingCharacters(in: .whitespaces)
-            }
-            guard let name = value(1), let actual = Int(value(2) ?? ""),
-                  let target = Int(value(3) ?? ""), let min = Int(value(4) ?? ""),
-                  let max = Int(value(5) ?? ""), let mode = value(6) else { return nil }
-            return FanReading(id: index, name: name, actual: actual, target: target, min: min, max: max, mode: mode)
-        }
-    }
-
-    private static func parseThermal(_ output: String) -> ThermalSummary? {
-        let pattern = #"temps:\s+avg\s+([0-9.]+)°C,\s+hottest\s+([0-9.]+)°C\s+\(([^)]+)\),\s+([0-9]+)\s+sensors"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: output, range: NSRange(output.startIndex..., in: output)),
-              let avgRange = Range(match.range(at: 1), in: output),
-              let hotRange = Range(match.range(at: 2), in: output),
-              let sensorRange = Range(match.range(at: 3), in: output),
-              let countRange = Range(match.range(at: 4), in: output),
-              let average = Double(output[avgRange]),
-              let hottest = Double(output[hotRange]),
-              let count = Int(output[countRange]) else { return nil }
-        return ThermalSummary(average: average, hottest: hottest, sensor: String(output[sensorRange]), count: count)
-    }
 }
 
 struct FanRow: View {
