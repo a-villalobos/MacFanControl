@@ -250,7 +250,13 @@ struct FanRow: View {
             .disabled(model.isWorking)
             .opacity(model.isWorking ? 0.55 : 1)
         }
-        .padding(.vertical, 10)
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+        }
+        .padding(.vertical, 3)
     }
 }
 
@@ -263,7 +269,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Mac Fan")
+                    Text("Fan")
                         .font(.title2.weight(.semibold))
                     Text("AppleSMC thermal control")
                         .font(.caption)
@@ -300,6 +306,12 @@ struct ContentView: View {
                     .accessibilityLabel("Refresh fan telemetry")
                     .help("Refresh")
             }
+            .padding(12)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+            }
             if let thermal = model.thermal {
                 Text("\(thermal.sensor) · \(thermal.count) sensors")
                     .font(.caption2)
@@ -322,6 +334,12 @@ struct ContentView: View {
                         .controlSize(.small)
                 }
                 .padding(.vertical, 4)
+                .padding(.horizontal, 10)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(.orange.opacity(0.25), lineWidth: 0.5)
+                }
             }
             if let error = model.errorMessage {
                 Label(error, systemImage: "exclamationmark.triangle")
@@ -343,7 +361,7 @@ struct ContentView: View {
                     .disabled(model.isWorking)
                 Spacer()
                 Menu {
-                    Button("Quit Mac Fan", role: .destructive) { close() }
+                    Button("Quit Fan", role: .destructive) { close() }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
