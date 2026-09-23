@@ -204,10 +204,6 @@ final class FanModel: ObservableObject {
         for fan in fans {
             percentDrafts[fan.id] = percent
         }
-        if percent < 0.5 {
-            automatic()
-            return
-        }
         for fan in fans {
             let rpm = Int((Double(fan.min) + (percent / 100) * Double(fan.max - fan.min)).rounded())
             set(fan, rpm: rpm)
@@ -395,9 +391,12 @@ struct ContentView: View {
                             Text(selectedFans.count == model.fans.count ? "Adjusting Both Fans" : "Adjusting \(selectedFans.map { $0.name.replacingOccurrences(of: " Fan", with: "") }.joined(separator: " + "))")
                                 .font(.headline)
                             Spacer()
-                            Text("\(Int(model.percentDraft(for: selectedFans).rounded()))%")
-                                .font(.system(.body, design: .rounded).weight(.semibold))
-                                .monospacedDigit()
+                            Button("Reset to Automatic") {
+                                model.automatic()
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
                         }
                         Slider(
                             value: Binding(
@@ -414,11 +413,11 @@ struct ContentView: View {
                         )
                         .tint(model.percentDraft(for: selectedFans) == 0 ? .blue : .orange)
                         .accessibilityLabel(selectedFans.count == model.fans.count ? "Both fans control" : "Selected fans control")
-                        .accessibilityValue(model.percentDraft(for: selectedFans) == 0 ? "Automatic" : "\(Int(model.percentDraft(for: selectedFans).rounded())) percent manual")
+                        .accessibilityValue(model.percentDraft(for: selectedFans) == 0 ? "Idle" : "\(Int(model.percentDraft(for: selectedFans).rounded())) percent")
                         HStack {
-                            Text("Automatic")
+                            Text("Idle")
                             Spacer()
-                            Text("Manual")
+                            Text("Max")
                         }
                         .font(.caption2)
                         .foregroundStyle(.secondary)
