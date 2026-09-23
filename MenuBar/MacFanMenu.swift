@@ -105,8 +105,9 @@ final class FanModel: ObservableObject {
             DispatchQueue.main.async {
                 self.isWorking = false
                 if result.status != 0 {
-                    self.authorizationMessage = "Authorization could not be completed."
+                    self.authorizationMessage = "Authorization failed. Try again."
                 } else {
+                    self.authorized = true
                     self.authorizationMessage = nil
                     self.checkAuthorization()
                 }
@@ -125,6 +126,7 @@ final class FanModel: ObservableObject {
                     self.percentDrafts[fan.id] = 0
                 }
                 self.errorMessage = telemetry == nil ? "Unable to read fan telemetry." : nil
+                self.checkAuthorization()
             }
         }
     }
@@ -310,6 +312,14 @@ struct ContentView: View {
                                 .font(.caption.weight(.medium))
                         }
                         .foregroundStyle(model.thermal?.color ?? .secondary)
+                        Button { model.authorize() } label: {
+                            Image(systemName: model.authorized ? "lock.open" : "lock")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(model.authorized ? .green : .orange)
+                        .accessibilityLabel("Re-authorize fan controls")
+                        .help("Re-authorize fan controls")
                         Spacer()
                         if model.isWorking {
                             Image(systemName: "arrow.triangle.2.circlepath")
@@ -345,7 +355,7 @@ struct ContentView: View {
                     Text("Authorization required")
                         .font(.caption.weight(.medium))
                     Spacer()
-                    Button("Enable") { model.authorize() }
+                    Button(model.authorizationMessage == nil ? "Enable" : "Try Again") { model.authorize() }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }
