@@ -86,7 +86,7 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }
         let index: usize = args[i + 1].parse()?;
         let rpm: f32 = args[i + 2].parse()?;
-        control::set_once(fans, index, rpm).map_err(|e| Box::<dyn std::error::Error>::from(e))?;
+        control::set_once(fans, index, rpm).map_err(Box::<dyn std::error::Error>::from)?;
         println!("fan {index} target set to {rpm:.0} RPM");
         return Ok(());
     }
