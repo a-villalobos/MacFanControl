@@ -424,7 +424,6 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            Divider()
             if let message = model.authorizationMessage {
                 Text(message)
                     .font(.caption2)
