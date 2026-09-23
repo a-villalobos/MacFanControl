@@ -368,7 +368,8 @@ final class FanStatusView: NSView {
     var onClick: (() -> Void)?
     var angle: CGFloat = 0 {
         didSet {
-            needsDisplay = true
+            // Rotate the glyph itself so it spins in place around its center.
+            imageView.layer?.setAffineTransform(CGAffineTransform(rotationAngle: angle))
         }
     }
 
