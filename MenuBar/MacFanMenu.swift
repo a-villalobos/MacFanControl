@@ -90,22 +90,21 @@ final class FanModel: ObservableObject {
 
     func checkAuthorization() {
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Self.run("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "auto"]) ?? ""
+            let result = Self.runStatus("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "check"])
             DispatchQueue.main.async {
-                self.authorized = !result.contains("password is required") && !result.contains("not found")
+                self.authorized = result.status == 0
             }
         }
     }
 
     func authorize() {
         isWorking = true
-        let command = "/usr/bin/install -d -o root -g wheel -m 755 /Library/PrivilegedHelperTools && /usr/bin/install -o root -g wheel -m 755 /Users/alexis/bin/macfan /Library/PrivilegedHelperTools/macfan && /usr/bin/install -o root -g wheel -m 755 /Users/alexis/src/macfan/macfan-privileged-helper.zsh /Library/PrivilegedHelperTools/com.alexis.macfan.helper && /bin/grep -q \"com.alexis.macfan.helper\" /etc/sudoers || /bin/printf \"\\\\nalexis ALL=(root) NOPASSWD: /Library/PrivilegedHelperTools/com.alexis.macfan.helper\\\\n\" >> /etc/sudoers && /usr/sbin/visudo -cf /etc/sudoers"
         DispatchQueue.global(qos: .userInitiated).async {
-            let script = "do shell script \"\(command)\" with administrator privileges"
-            let result = Self.run("/usr/bin/osascript", ["-e", script]) ?? ""
+            let script = "do shell script \"/bin/zsh /Users/alexis/src/macfan/authorize-macfan.zsh\" with administrator privileges"
+            let result = Self.runStatus("/usr/bin/osascript", ["-e", script])
             DispatchQueue.main.async {
                 self.isWorking = false
-                if result.contains("error") || result.contains("syntax") {
+                if result.status != 0 {
                     self.authorizationMessage = "Authorization could not be completed."
                 } else {
                     self.authorizationMessage = nil

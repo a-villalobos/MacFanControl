@@ -5,6 +5,10 @@ set -euo pipefail
 readonly MACFAN="/Library/PrivilegedHelperTools/macfan"
 
 case "${1:-}" in
+    check)
+        [[ $# -eq 1 ]] || exit 64
+        exit 0
+        ;;
     set)
         [[ $# -eq 3 && "$2" =~ '^[01]$' && "$3" =~ '^[0-9]+$' ]] || exit 64
         exec "$MACFAN" --set "$2" "$3"
