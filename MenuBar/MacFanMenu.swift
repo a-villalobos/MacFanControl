@@ -266,32 +266,32 @@ struct ContentView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "circle.fill")
-                    .font(.system(size: 8))
+            ZStack {
+                Text("Fan")
+                    .font(.title2.weight(.semibold))
+                HStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 8))
+                        Text(model.thermal?.label ?? "Reading")
+                            .font(.caption.weight(.medium))
+                    }
                     .foregroundStyle(model.thermal?.color ?? .secondary)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Fan")
-                        .font(.title2.weight(.semibold))
-                        Text("AppleSMC thermal control")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    Spacer()
+                    if model.isWorking {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .foregroundStyle(.orange)
+                            .symbolEffect(.pulse, isActive: true)
+                    }
+                    Menu {
+                        Button("Quit Fan", role: .destructive) { close() }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .help("More options")
                 }
-                Spacer()
-                Image(systemName: model.isWorking ? "arrow.triangle.2.circlepath" : "thermometer.medium")
-                    .foregroundStyle(model.isWorking ? .orange : (model.thermal?.color ?? .secondary))
-                    .symbolEffect(.pulse, isActive: model.isWorking)
-                Text(model.thermal?.label ?? "Reading")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(model.thermal?.color ?? .secondary)
-                Menu {
-                    Button("Quit Fan", role: .destructive) { close() }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
-                }
-                .menuStyle(.borderlessButton)
-                .help("More options")
             }
             Divider()
             HStack(spacing: 20) {
@@ -437,7 +437,7 @@ private struct ToolbarFanGlyph: View {
             rpm: model.fans.map(\.actual).max() ?? 0,
             size: 16
         )
-        .tint(.primary)
+        .tint(model.thermal?.color ?? .secondary)
     }
 }
 
