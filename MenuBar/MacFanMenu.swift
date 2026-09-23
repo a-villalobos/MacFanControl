@@ -267,6 +267,9 @@ struct FanCard: View {
                     .trim(from: 0, to: min(1, max(0, Double(fan.actual) / Double(max(fan.max, 1)))))
                     .stroke(fan.mode == "MANUAL" ? .orange : .blue, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
+                Circle()
+                    .stroke(selected ? .blue.opacity(0.9) : .clear, lineWidth: 2)
+                    .padding(-6)
                 FanGlyph(isRunning: fan.actual > 0, rpm: fan.actual, size: 25)
             }
             .frame(width: 76, height: 76)
@@ -280,13 +283,9 @@ struct FanCard: View {
                 .foregroundStyle(fan.mode == "MANUAL" ? .orange : .secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(selected ? .blue.opacity(0.9) : .white.opacity(0.12), lineWidth: selected ? 1.5 : 0.5)
-        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .opacity(selected ? 1 : 0.45)
         .onTapGesture(perform: select)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(fan.name), \(fan.actual) RPM")
@@ -333,11 +332,12 @@ struct ContentView: View {
                 if let thermal = model.thermal {
                     HStack(spacing: 12) {
                         Text(String(format: "%.1f°C average", thermal.average))
+                            .foregroundStyle(.secondary)
                         Text("·")
                         Text(String(format: "%.1f°C hottest", thermal.hottest))
+                            .foregroundStyle(thermal.color)
                     }
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(thermal.color)
                 }
             }
             Divider()
@@ -345,13 +345,8 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.circle")
                         .foregroundStyle(.orange)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Controls need authorization")
-                            .font(.caption.weight(.medium))
-                        Text("Enable once to avoid prompts for each change.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("Authorization required")
+                        .font(.caption.weight(.medium))
                     Spacer()
                     Button("Enable") { model.authorize() }
                         .buttonStyle(.bordered)
@@ -371,12 +366,6 @@ struct ContentView: View {
                     .foregroundStyle(.red)
             }
             if !model.fans.isEmpty {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("FANS")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .tracking(1.2)
-                }
                 HStack(spacing: 10) {
                     ForEach(model.fans) { fan in
                         FanCard(fan: fan, selected: model.isSelected(fan.id)) {
@@ -391,12 +380,15 @@ struct ContentView: View {
                             Text(selectedFans.count == model.fans.count ? "Adjusting Both Fans" : "Adjusting \(selectedFans.map { $0.name.replacingOccurrences(of: " Fan", with: "") }.joined(separator: " + "))")
                                 .font(.headline)
                             Spacer()
-                            Button("Reset to Automatic") {
+                            Button {
                                 model.automatic()
+                            } label: {
+                                Image(systemName: "arrow.uturn.backward.circle")
                             }
                             .buttonStyle(.borderless)
-                            .font(.caption.weight(.medium))
                             .foregroundStyle(.secondary)
+                            .accessibilityLabel("Reset all fans to automatic")
+                            .help("Reset all fans to automatic")
                         }
                         Slider(
                             value: Binding(
