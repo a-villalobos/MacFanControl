@@ -348,24 +348,28 @@ struct ContentView: View {
                 }
             }
             Divider()
-            if !model.authorized {
-                HStack(spacing: 8) {
-                    Image(systemName: "lock.circle")
-                        .foregroundStyle(.orange)
-                    Text("Authorization required")
-                        .font(.caption.weight(.medium))
-                    Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: model.authorized ? "checkmark.circle.fill" : "lock.circle")
+                    .foregroundStyle(model.authorized ? .green : .orange)
+                Text(model.authorized ? "Authorization active" : "Authorization required")
+                    .font(.caption.weight(.medium))
+                Spacer()
+                if model.authorized {
+                    Text("Ready")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                } else {
                     Button(model.authorizationMessage == nil ? "Enable" : "Try Again") { model.authorize() }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 14)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(.orange.opacity(0.25), lineWidth: 0.5)
-                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder((model.authorized ? Color.green : Color.orange).opacity(0.25), lineWidth: 0.5)
             }
             if let error = model.errorMessage {
                 Label(error, systemImage: "exclamationmark.triangle")
