@@ -75,7 +75,8 @@ final class FanModel: ObservableObject {
     @Published var authorized = false
     @Published var authorizationMessage: String?
     @Published var errorMessage: String?
-    @Published var selectedFanID: Int?
+    // nil means all fans are selected by default; a set tracks explicit toggles.
+    @Published var selectedFanIDs: Set<Int>?
     private let binary = "/Users/alexis/bin/macfan"
     private var timer: Timer?
 
@@ -185,6 +186,20 @@ final class FanModel: ObservableObject {
         }
     }
 
+    func isSelected(_ fanID: Int) -> Bool {
+        selectedFanIDs?.contains(fanID) ?? true
+    }
+
+    func toggleSelection(_ fanID: Int) {
+        var selection = selectedFanIDs ?? Set(fans.map(\.id))
+        if selection.contains(fanID) {
+            selection.remove(fanID)
+        } else {
+            selection.insert(fanID)
+        }
+        selectedFanIDs = selection
+    }
+
     func applyPercent(_ percent: Double, to fans: [FanReading]) {
         for fan in fans {
             percentDrafts[fan.id] = percent
@@ -291,67 +306,45 @@ struct ContentView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 12) {
-            ZStack {
-                Text("Fan")
-                    .font(.title2.weight(.semibold))
-                HStack {
-                    HStack(spacing: 6) {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                        Text(model.thermal?.label ?? "Reading")
-                            .font(.caption.weight(.medium))
+            VStack(spacing: 4) {
+                ZStack {
+                    Text("Fan")
+                        .font(.title2.weight(.semibold))
+                    HStack {
+                        HStack(spacing: 6) {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 8))
+                            Text(model.thermal?.label ?? "Reading")
+                                .font(.caption.weight(.medium))
+                        }
+                        .foregroundStyle(model.thermal?.color ?? .secondary)
+                        Spacer()
+                        if model.isWorking {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .foregroundStyle(.orange)
+                                .symbolEffect(.pulse, isActive: true)
+                        }
+                        Button { close() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 12, weight: .semibold))
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Close Fan")
+                        .help("Close")
                     }
-                    .foregroundStyle(model.thermal?.color ?? .secondary)
-                    Spacer()
-                    if model.isWorking {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .foregroundStyle(.orange)
-                            .symbolEffect(.pulse, isActive: true)
+                }
+                if let thermal = model.thermal {
+                    HStack(spacing: 12) {
+                        Text(String(format: "%.1f°C average", thermal.average))
+                        Text("·")
+                        Text(String(format: "%.1f°C hottest", thermal.hottest))
                     }
-                    Button { close() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
-                            .frame(width: 28, height: 28)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close Fan")
-                    .help("Close")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(thermal.color)
                 }
             }
             Divider()
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Average")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(model.thermal.map { String(format: "%.1f°C", $0.average) } ?? "—")
-                        .font(.system(.title3, design: .rounded).weight(.semibold))
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Hottest")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(model.thermal.map { String(format: "%.1f°C", $0.hottest) } ?? "—")
-                        .font(.system(.title3, design: .rounded).weight(.semibold))
-                        .foregroundStyle(model.thermal?.color ?? .primary)
-                }
-                Spacer()
-                Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Refresh fan telemetry")
-                    .help("Refresh")
-            }
-            .padding(12)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
-            }
-            if let thermal = model.thermal {
-                Text("\(thermal.sensor) · \(thermal.count) sensors")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
             if !model.authorized {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.circle")
@@ -387,35 +380,19 @@ struct ContentView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .tracking(1.2)
-                    Spacer()
-                    if let thermal = model.thermal {
-                        Text(String(format: "%.1f°C avg · %.1f°C hot", thermal.average, thermal.hottest))
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(thermal.color)
-                    }
                 }
                 HStack(spacing: 10) {
                     ForEach(model.fans) { fan in
-                        FanCard(fan: fan, selected: model.selectedFanID == nil || model.selectedFanID == fan.id) {
-                            model.selectedFanID = fan.id
+                        FanCard(fan: fan, selected: model.isSelected(fan.id)) {
+                            model.toggleSelection(fan.id)
                         }
                     }
                 }
 
-                Button {
-                    model.selectedFanID = nil
-                } label: {
-                    Label("Both Fans", systemImage: "link")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(model.selectedFanID == nil ? .blue : .secondary)
-                .accessibilityLabel("Control both fans")
-
                 if !selectedFans.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(model.selectedFanID == nil ? "Adjusting Both Fans" : "Adjusting \(selectedFans[0].name)")
+                            Text(selectedFans.count == model.fans.count ? "Adjusting Both Fans" : "Adjusting \(selectedFans.map { $0.name.replacingOccurrences(of: " Fan", with: "") }.joined(separator: " + "))")
                                 .font(.headline)
                             Spacer()
                             Text("\(Int(model.percentDraft(for: selectedFans).rounded()))%")
@@ -436,7 +413,7 @@ struct ContentView: View {
                             }
                         )
                         .tint(model.percentDraft(for: selectedFans) == 0 ? .blue : .orange)
-                        .accessibilityLabel(model.selectedFanID == nil ? "Both fans control" : "\(selectedFans[0].name) fan control")
+                        .accessibilityLabel(selectedFans.count == model.fans.count ? "Both fans control" : "Selected fans control")
                         .accessibilityValue(model.percentDraft(for: selectedFans) == 0 ? "Automatic" : "\(Int(model.percentDraft(for: selectedFans).rounded())) percent manual")
                         HStack {
                             Text("Automatic")
@@ -448,10 +425,15 @@ struct ContentView: View {
                     }
                     .padding(12)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay {
+                        .overlay {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
                     }
+                } else {
+                    Text("Select a fan to adjust")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             Divider()
@@ -467,8 +449,7 @@ struct ContentView: View {
     }
 
     private var selectedFans: [FanReading] {
-        guard let id = model.selectedFanID else { return model.fans }
-        return model.fans.filter { $0.id == id }
+        model.fans.filter { model.isSelected($0.id) }
     }
 }
 
