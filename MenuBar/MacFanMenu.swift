@@ -71,9 +71,11 @@ final class FanModel: ObservableObject {
     @Published var thermal: ThermalSummary?
     @Published var isWorking = false
     @Published var drafts: [Int: Double] = [:]
+    @Published var percentDrafts: [Int: Double] = [:]
     @Published var authorized = false
     @Published var authorizationMessage: String?
     @Published var errorMessage: String?
+    @Published var selectedFanID: Int?
     private let binary = "/Users/alexis/bin/macfan"
     private var timer: Timer?
 
@@ -152,6 +154,29 @@ final class FanModel: ObservableObject {
         drafts[fan.id] = value
     }
 
+    func percent(for fan: FanReading) -> Double {
+        guard fan.mode == "MANUAL", fan.max > fan.min else { return 0 }
+        return min(100, max(0, (Double(fan.target - fan.min) / Double(fan.max - fan.min)) * 100))
+    }
+
+    func percentDraft(for fan: FanReading) -> Double {
+        percentDrafts[fan.id] ?? percent(for: fan)
+    }
+
+    func updatePercentDraft(_ fan: FanReading, value: Double) {
+        percentDrafts[fan.id] = value
+    }
+
+    func applyPercent(_ percent: Double, to fan: FanReading) {
+        percentDrafts[fan.id] = percent
+        if percent < 0.5 {
+            automatic()
+            return
+        }
+        let rpm = Int((Double(fan.min) + (percent / 100) * Double(fan.max - fan.min)).rounded())
+        set(fan, rpm: rpm)
+    }
+
     func automatic() {
         isWorking = true
         DispatchQueue.global(qos: .userInitiated).async {
@@ -192,71 +217,45 @@ final class FanModel: ObservableObject {
 
 }
 
-struct FanRow: View {
+struct FanCard: View {
     let fan: FanReading
-    let model: FanModel
+    let selected: Bool
+    let select: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                FanGlyph(isRunning: fan.actual > 0, rpm: fan.actual, size: 16)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(fan.name)
-                        .font(.headline)
-                    Text(fan.mode == "MANUAL" ? "Manual control" : "macOS automatic")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text("\(fan.actual) RPM")
-                        .font(.system(.body, design: .rounded).weight(.semibold))
-                    Text("target \(fan.target)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .stroke(.white.opacity(0.12), lineWidth: 8)
+                Circle()
+                    .trim(from: 0, to: min(1, max(0, Double(fan.actual) / Double(max(fan.max, 1)))))
+                    .stroke(fan.mode == "MANUAL" ? .orange : .blue, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                FanGlyph(isRunning: fan.actual > 0, rpm: fan.actual, size: 25)
             }
-            ProgressView(value: Double(fan.actual), total: Double(max(fan.max, 1)))
-                .tint(fan.mode == "MANUAL" ? .orange : .blue)
-            HStack(spacing: 10) {
-                Slider(
-                    value: Binding(
-                        get: { model.draft(for: fan) },
-                        set: { model.updateDraft(fan, value: $0) }
-                    ),
-                    in: Double(fan.min)...Double(fan.max),
-                    step: 100,
-                    onEditingChanged: { active in
-                        if !active {
-                            model.set(fan, rpm: Int(model.draft(for: fan).rounded()))
-                        }
-                    }
-                )
-                .tint(fan.mode == "MANUAL" ? .orange : .blue)
-                .accessibilityLabel("\(fan.name) target speed")
-                .accessibilityValue("\(Int(model.draft(for: fan).rounded())) RPM")
-                Text("\(Int(model.draft(for: fan).rounded()))")
-                    .font(.system(.caption, design: .rounded).weight(.semibold))
-                    .frame(width: 48, alignment: .trailing)
-                    .monospacedDigit()
-            }
-            HStack {
-                Text("\(fan.min) RPM")
-                Spacer()
-                Text("\(fan.max) RPM")
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .disabled(model.isWorking)
-            .opacity(model.isWorking ? 0.55 : 1)
+            .frame(width: 94, height: 94)
+            Text(fan.name.replacingOccurrences(of: " Fan", with: ""))
+                .font(.headline)
+            Text("\(fan.actual) RPM")
+                .font(.system(.callout, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+            Text(fan.mode == "MANUAL" ? "Manual" : "Automatic")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(fan.mode == "MANUAL" ? .orange : .secondary)
         }
-        .padding(12)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                .strokeBorder(selected ? .blue.opacity(0.9) : .white.opacity(0.12), lineWidth: selected ? 1.5 : 0.5)
         }
-        .padding(.vertical, 3)
+        .onTapGesture(perform: select)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(fan.name), \(fan.actual) RPM")
+        .accessibilityHint("Select this fan for control")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -268,12 +267,15 @@ struct ContentView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 12) {
             HStack {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(model.thermal?.color ?? .secondary)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Fan")
                         .font(.title2.weight(.semibold))
-                    Text("AppleSMC thermal control")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        Text("AppleSMC thermal control")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: model.isWorking ? "arrow.triangle.2.circlepath" : "thermometer.medium")
@@ -282,6 +284,14 @@ struct ContentView: View {
                 Text(model.thermal?.label ?? "Reading")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(model.thermal?.color ?? .secondary)
+                Menu {
+                    Button("Quit Fan", role: .destructive) { close() }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                }
+                .menuStyle(.borderlessButton)
+                .help("More options")
             }
             Divider()
             HStack(spacing: 20) {
@@ -346,29 +356,62 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             }
-            ForEach(model.fans) { fan in
-                FanRow(fan: fan, model: model)
+            if !model.fans.isEmpty {
+                Text("FANS")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(1.2)
+                HStack(spacing: 10) {
+                    ForEach(model.fans) { fan in
+                        FanCard(fan: fan, selected: selectedFan?.id == fan.id) {
+                            model.selectedFanID = fan.id
+                        }
+                    }
+                }
+
+                if let fan = selectedFan {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Adjusting \(fan.name)")
+                                .font(.headline)
+                            Spacer()
+                            Text("\(Int(model.percentDraft(for: fan).rounded()))%")
+                                .font(.system(.body, design: .rounded).weight(.semibold))
+                                .monospacedDigit()
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { model.percentDraft(for: fan) },
+                                set: { model.updatePercentDraft(fan, value: $0) }
+                            ),
+                            in: 0...100,
+                            step: 1,
+                            onEditingChanged: { active in
+                                if !active {
+                                    model.applyPercent(model.percentDraft(for: fan), to: fan)
+                                }
+                            }
+                        )
+                        .tint(model.percentDraft(for: fan) == 0 ? .blue : .orange)
+                        .accessibilityLabel("\(fan.name) fan control")
+                        .accessibilityValue(model.percentDraft(for: fan) == 0 ? "Automatic" : "\(Int(model.percentDraft(for: fan).rounded())) percent manual")
+                        HStack {
+                            Text("Automatic")
+                            Spacer()
+                            Text("Manual")
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                    }
+                }
             }
             Divider()
-            HStack(spacing: 10) {
-                Button {
-                    model.automatic()
-                } label: {
-                    Label("Return to macOS control", systemImage: "arrow.uturn.backward.circle")
-                }
-                    .buttonStyle(.bordered)
-                    .tint(.secondary)
-                    .disabled(model.isWorking)
-                Spacer()
-                Menu {
-                    Button("Quit Fan", role: .destructive) { close() }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
-                }
-                .menuStyle(.borderlessButton)
-                .help("More options")
-            }
             if let message = model.authorizationMessage {
                 Text(message)
                     .font(.caption2)
@@ -378,6 +421,10 @@ struct ContentView: View {
             .padding(16)
         }
         .frame(width: 370, height: 430)
+    }
+
+    private var selectedFan: FanReading? {
+        model.fans.first(where: { $0.id == model.selectedFanID }) ?? model.fans.first
     }
 }
 
