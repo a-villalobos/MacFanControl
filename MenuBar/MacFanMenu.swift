@@ -382,7 +382,6 @@ final class FanStatusView: NSView {
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.contentTintColor = .labelColor
         imageView.wantsLayer = true
-        imageView.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         addSubview(imageView)
     }
 
@@ -391,6 +390,7 @@ final class FanStatusView: NSView {
     override func layout() {
         super.layout()
         imageView.frame = bounds.insetBy(dx: 3, dy: 3)
+        imageView.layer?.position = CGPoint(x: imageView.frame.midX, y: imageView.frame.midY)
     }
 
     override func mouseDown(with event: NSEvent) {
