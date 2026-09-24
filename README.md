@@ -57,7 +57,7 @@ Reading fan state and temperatures never requires privileges. **Writing** fan sp
 You need a [Rust toolchain](https://rustup.rs) (1.85+, edition 2024).
 
 ```sh
-git clone https://github.com/raminsharifi/macfan.git
+git clone https://github.com/a-villalobos/MacFanControl.git
 cd macfan
 cargo build --release
 sudo ./target/release/macfan
