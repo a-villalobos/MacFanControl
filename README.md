@@ -6,6 +6,8 @@ macfan talks directly to the SMC (System Management Controller) through IOKit �
 
 Built and tested on an Apple Silicon MacBook Pro (M3 Pro, `Mac15,7`) running macOS 26, including the M3/M4-generation thermal-manager unlock that most older fan tools don't handle.
 
+![Fan menu bar interface showing live temperatures, fan speeds, and controls](docs/images/macfan-menu.png)
+
 ```
  MACFAN  Mac15,7 · Apple M3 Pro   CONTROL
 ┏━ ▶ Left Fan  MANUAL  linked ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
