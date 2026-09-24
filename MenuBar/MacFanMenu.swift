@@ -78,8 +78,39 @@ final class FanModel: ObservableObject {
     @Published var authorizationHovering = false
     // nil means all fans are selected by default; a set tracks explicit toggles.
     @Published var selectedFanIDs: Set<Int>?
-    private let binary = "/Users/alexis/bin/macfan"
+    private static let helper = "/Library/PrivilegedHelperTools/macfan-helper"
+    private let binary = FanModel.resolveBinary()
     private var timer: Timer?
+
+    private static func resolveBinary() -> String {
+        let environment = ProcessInfo.processInfo.environment
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            environment["MACFAN_BINARY"],
+            "\(home)/bin/macfan",
+            "/usr/local/bin/macfan",
+            "/opt/homebrew/bin/macfan",
+            "\(home)/src/macfan/target/release/macfan",
+            "\(home)/macfan/target/release/macfan",
+        ].compactMap { $0 }
+        return candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) ?? "macfan"
+    }
+
+    private static func resolveAuthorizationScript() -> String? {
+        let environment = ProcessInfo.processInfo.environment
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            environment["MACFAN_AUTHORIZE_SCRIPT"],
+            Bundle.main.resourceURL?.appendingPathComponent("authorize-macfan.zsh").path,
+            "\(home)/src/macfan/authorize-macfan.zsh",
+            "\(home)/macfan/authorize-macfan.zsh",
+        ].compactMap { $0 }
+        return candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) })
+    }
+
+    private static func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
 
     func start() {
         checkAuthorization()
@@ -91,7 +122,7 @@ final class FanModel: ObservableObject {
 
     func checkAuthorization() {
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Self.runStatus("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "check"])
+            let result = Self.runStatus("/usr/bin/sudo", ["-n", Self.helper, "check"])
             DispatchQueue.main.async {
                 self.authorized = result.status == 0
             }
@@ -101,7 +132,17 @@ final class FanModel: ObservableObject {
     func authorize() {
         isWorking = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let script = "do shell script \"/bin/zsh /Users/alexis/src/macfan/authorize-macfan.zsh\" with administrator privileges"
+            guard let authorizeScript = Self.resolveAuthorizationScript() else {
+                DispatchQueue.main.async {
+                    self.isWorking = false
+                    self.errorMessage = "Authorization installer not found. Set MACFAN_AUTHORIZE_SCRIPT."
+                }
+                return
+            }
+            let command = ["/bin/zsh", authorizeScript, self.binary, NSUserName()]
+                .map(Self.shellQuote)
+                .joined(separator: " ")
+            let script = "do shell script \"\(command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))\" with administrator privileges"
             let result = Self.runStatus("/usr/bin/osascript", ["-e", script])
             DispatchQueue.main.async {
                 self.isWorking = false
@@ -135,7 +176,7 @@ final class FanModel: ObservableObject {
         drafts[fan.id] = Double(rpm)
         isWorking = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let helper = Self.runStatus("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "set", "\(fan.id)", "\(rpm)"])
+            let helper = Self.runStatus("/usr/bin/sudo", ["-n", Self.helper, "set", "\(fan.id)", "\(rpm)"])
             if helper.status != 0 {
                 let script = "do shell script \"\(self.binary) --set \(fan.id) \(rpm)\" with administrator privileges"
                 let fallback = Self.runStatus("/usr/bin/osascript", ["-e", script])
@@ -217,7 +258,7 @@ final class FanModel: ObservableObject {
         }
         isWorking = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let helper = Self.runStatus("/usr/bin/sudo", ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "auto"])
+            let helper = Self.runStatus("/usr/bin/sudo", ["-n", Self.helper, "auto"])
             if helper.status != 0 {
                 let script = "do shell script \"\(self.binary) --auto\" with administrator privileges"
                 let fallback = Self.runStatus("/usr/bin/osascript", ["-e", script])

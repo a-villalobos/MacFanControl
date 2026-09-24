@@ -34,7 +34,14 @@ final class FanAction: NSObject {
 }
 
 final class App: NSObject, NSApplicationDelegate {
-    private let binary = "/Users/alexis/bin/macfan"
+    private let binary: String = {
+        let environment = ProcessInfo.processInfo.environment
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return [environment["MACFAN_BINARY"], "\(home)/bin/macfan", "/usr/local/bin/macfan", "/opt/homebrew/bin/macfan"]
+            .compactMap { $0 }
+            .first(where: { FileManager.default.isExecutableFile(atPath: $0) }) ?? "macfan"
+    }()
+    private let helper = "/Library/PrivilegedHelperTools/macfan-helper"
     private var statusItem: NSStatusItem!
     private var menu = NSMenu()
     private var readings: [FanReading] = []
@@ -116,12 +123,12 @@ final class App: NSObject, NSApplicationDelegate {
     }
 
     func setFan(index: Int, rpm: Int) {
-        _ = run("/usr/bin/sudo", arguments: ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "set", "\(index)", "\(rpm)"])
+        _ = run("/usr/bin/sudo", arguments: ["-n", helper, "set", "\(index)", "\(rpm)"])
         refresh()
     }
 
     func restoreAutomatic() {
-        _ = run("/usr/bin/sudo", arguments: ["-n", "/Library/PrivilegedHelperTools/com.alexis.macfan.helper", "auto"])
+        _ = run("/usr/bin/sudo", arguments: ["-n", helper, "auto"])
         refresh()
     }
 

@@ -71,6 +71,12 @@ Optionally install it on your `PATH`:
 sudo cp target/release/macfan /usr/local/bin/
 ```
 
+### Menu bar app paths
+
+The menu bar app looks for `macfan` in `~/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, and common source-build locations. Set `MACFAN_BINARY` to use a different executable.
+
+Authorization uses the generic `/Library/PrivilegedHelperTools/macfan-helper` path. The installer generates a validated sudoers rule for the current macOS user at install time; the repository does not contain a machine-specific username or home-directory path. If the authorization script is stored outside the repository or app bundle, point the app to it with `MACFAN_AUTHORIZE_SCRIPT`.
+
 ## Usage
 
 ```
