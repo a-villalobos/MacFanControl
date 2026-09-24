@@ -199,10 +199,11 @@ or just reboot — the SMC resets fan control on its own at startup.
 ## Development
 
 ```sh
-cargo build          # debug build
-cargo test           # unit tests (struct layout, fourcc, fpe2/flt codecs)
-cargo clippy         # lint-clean
+./scripts/check.sh    # formatting, tests, lint, Swift, shell, and plist checks
+./scripts/build.sh    # release binary plus build/Fan.app
 ```
+
+The same scripts run in GitHub Actions. Every successful pull request and `main` build produces a downloadable `Fan-macOS` artifact. See [CONTRIBUTING.md](CONTRIBUTING.md) for the required branch and review workflow.
 
 | Module | Purpose |
 |--------|---------|

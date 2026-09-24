@@ -3,8 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key><string>app.macfan.menu</string>
-	<key>CFBundleName</key><string>Mac Fan Menu</string>
+	<key>CFBundleName</key><string>Fan</string>
+	<key>CFBundleDisplayName</key><string>Fan</string>
 	<key>CFBundleExecutable</key><string>MacFanMenu</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>0.1.0</string>
+	<key>CFBundleVersion</key><string>1</string>
+	<key>NSHighResolutionCapable</key><true/>
 	<key>LSUIElement</key><true/>
 </dict>
 </plist>

@@ -87,6 +87,7 @@ final class FanModel: ObservableObject {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let candidates = [
             environment["MACFAN_BINARY"],
+            Bundle.main.resourceURL?.appendingPathComponent("macfan").path,
             "\(home)/bin/macfan",
             "/usr/local/bin/macfan",
             "/opt/homebrew/bin/macfan",
