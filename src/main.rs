@@ -30,9 +30,7 @@ fn model_name() -> String {
 fn print_help() {
     println!("macfan — control Mac fan speed from the terminal");
     println!();
-    println!(
-        "usage: macfan [--list | --json | --auto | --set INDEX RPM | --help | --version]"
-    );
+    println!("usage: macfan [--list | --json | --auto | --set INDEX RPM | --help | --version]");
     println!();
     println!("  (no args)   launch the TUI (sudo required to change speeds)");
     println!("  --list      print fans and temperatures, then exit");
@@ -60,8 +58,7 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let allowed = matches!(
             arg.as_str(),
             "--list" | "--json" | "--auto" | "--version" | "-V"
-        )
-            || set.is_some_and(|i| index == i || index == i + 1 || index == i + 2);
+        ) || set.is_some_and(|i| index == i || index == i + 1 || index == i + 2);
         if !allowed {
             return Err(format!("unknown argument '{arg}' (try --help)").into());
         }
