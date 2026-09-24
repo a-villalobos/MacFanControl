@@ -30,13 +30,16 @@ fn model_name() -> String {
 fn print_help() {
     println!("macfan — control Mac fan speed from the terminal");
     println!();
-    println!("usage: macfan [--list | --json | --auto | --set INDEX RPM | --help]");
+    println!(
+        "usage: macfan [--list | --json | --auto | --set INDEX RPM | --help | --version]"
+    );
     println!();
     println!("  (no args)   launch the TUI (sudo required to change speeds)");
     println!("  --list      print fans and temperatures, then exit");
     println!("  --json      print fan and temperature data as JSON, then exit");
     println!("  --auto      restore all fans to automatic control, then exit");
     println!("  --set       set one fan's manual target RPM (requires sudo)");
+    println!("  --version   print the program version, then exit");
     println!();
     println!("TUI keys: ↑↓ select fan, ←→ ±100 RPM, shift←→ ±500, m manual/auto,");
     println!("          a all auto, f full blast, space toggle linked fans,");
@@ -48,9 +51,16 @@ fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         print_help();
         return Ok(());
     }
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("macfan {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
     let set = args.iter().position(|a| a == "--set");
     for (index, arg) in args.iter().enumerate() {
-        let allowed = matches!(arg.as_str(), "--list" | "--json" | "--auto")
+        let allowed = matches!(
+            arg.as_str(),
+            "--list" | "--json" | "--auto" | "--version" | "-V"
+        )
             || set.is_some_and(|i| index == i || index == i + 1 || index == i + 2);
         if !allowed {
             return Err(format!("unknown argument '{arg}' (try --help)").into());
