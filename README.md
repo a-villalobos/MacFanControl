@@ -6,6 +6,8 @@ macfan talks directly to the SMC (System Management Controller) through IOKit �
 
 Built and tested on an Apple Silicon MacBook Pro (M3 Pro, `Mac15,7`) running macOS 26, including the M3/M4-generation thermal-manager unlock that most older fan tools don't handle.
 
+![Fan menu bar interface showing live temperatures, fan speeds, and controls](docs/images/macfan-menu.png)
+
 ```
  MACFAN  Mac15,7 · Apple M3 Pro   CONTROL
 ┏━ ▶ Left Fan  MANUAL  linked ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -57,7 +59,7 @@ Reading fan state and temperatures never requires privileges. **Writing** fan sp
 You need a [Rust toolchain](https://rustup.rs) (1.85+, edition 2024).
 
 ```sh
-git clone https://github.com/raminsharifi/macfan.git
+git clone https://github.com/a-villalobos/MacFanControl.git
 cd macfan
 cargo build --release
 sudo ./target/release/macfan
@@ -68,6 +70,12 @@ Optionally install it on your `PATH`:
 ```sh
 sudo cp target/release/macfan /usr/local/bin/
 ```
+
+### Menu bar app paths
+
+The menu bar app looks for `macfan` in `~/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, and common source-build locations. Set `MACFAN_BINARY` to use a different executable.
+
+Authorization uses the generic `/Library/PrivilegedHelperTools/macfan-helper` path. The installer generates a validated sudoers rule for the current macOS user at install time; the repository does not contain a machine-specific username or home-directory path. If the authorization script is stored outside the repository or app bundle, point the app to it with `MACFAN_AUTHORIZE_SCRIPT`.
 
 ## Usage
 
@@ -191,10 +199,11 @@ or just reboot — the SMC resets fan control on its own at startup.
 ## Development
 
 ```sh
-cargo build          # debug build
-cargo test           # unit tests (struct layout, fourcc, fpe2/flt codecs)
-cargo clippy         # lint-clean
+./scripts/check.sh    # formatting, tests, lint, Swift, shell, and plist checks
+./scripts/build.sh    # release binary plus build/Fan.app
 ```
+
+The same scripts run in GitHub Actions. Every successful pull request and `main` build produces a downloadable `Fan-macOS` artifact. See [CONTRIBUTING.md](CONTRIBUTING.md) for the required branch and review workflow.
 
 | Module | Purpose |
 |--------|---------|

@@ -76,11 +76,33 @@ impl Controller {
     }
 
     pub fn send(&self, cmd: Cmd) {
-        if matches!(cmd, Cmd::QuitRestore | Cmd::QuitKeep) {
+        if matches!(cmd, Cmd::QuitRestore) {
             self.quit.store(true, Ordering::Relaxed);
         }
         if let Some(tx) = &self.tx {
             let _ = tx.send(cmd);
+        }
+    }
+}
+
+pub fn set_once(fans: Vec<Fan>, index: usize, rpm: f32) -> Result<(), String> {
+    if index >= fans.len() {
+        return Err(format!("fan index {index} is out of range"));
+    }
+    let controller = Controller::spawn(fans).map_err(|e| e.to_string())?;
+    controller.send(Cmd::SetTarget { index, rpm });
+    loop {
+        match controller.rx.recv_timeout(Duration::from_secs(20)) {
+            Ok(Note::Applied) => {
+                controller.send(Cmd::QuitKeep);
+                return Ok(());
+            }
+            Ok(Note::Error { text, .. }) => {
+                controller.send(Cmd::QuitRestore);
+                return Err(text);
+            }
+            Ok(Note::Info(_)) => {}
+            Err(_) => return Err("fan control timed out".into()),
         }
     }
 }
@@ -90,14 +112,15 @@ impl Drop for Controller {
         self.quit.store(true, Ordering::Relaxed);
         drop(self.tx.take());
         if let Some(handle) = self.handle.take()
-            && let Err(payload) = handle.join() {
-                let msg = payload
-                    .downcast_ref::<&str>()
-                    .map(|s| s.to_string())
-                    .or_else(|| payload.downcast_ref::<String>().cloned())
-                    .unwrap_or_else(|| "unknown panic".into());
-                eprintln!("macfan: fan control thread panicked: {msg}");
-            }
+            && let Err(payload) = handle.join()
+        {
+            let msg = payload
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| payload.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "unknown panic".into());
+            eprintln!("macfan: fan control thread panicked: {msg}");
+        }
     }
 }
 
@@ -195,8 +218,7 @@ impl Worker {
             return Err(WErr::Interrupted);
         }
         self.desired[index] = Desired::Auto;
-        fan_to_auto(&self.smc, &self.fans[index])
-            .map_err(|e| werr(&e, "disable manual mode"))?;
+        fan_to_auto(&self.smc, &self.fans[index]).map_err(|e| werr(&e, "disable manual mode"))?;
         self.maybe_release_ftst();
         Ok(())
     }
@@ -255,8 +277,7 @@ impl Worker {
 
     fn write_tg(&self, index: usize, rpm: f32) -> Result<(), WErr> {
         let key = fan::tg_key(&self.fans[index]);
-        let data =
-            fan::encode_rpm(&self.smc, &key, rpm).map_err(|e| werr(&e, "encode target"))?;
+        let data = fan::encode_rpm(&self.smc, &key, rpm).map_err(|e| werr(&e, "encode target"))?;
         self.write_retry(&key, &data, TG_RETRIES)
             .map_err(|e| werr(&e, "set target speed"))
     }
@@ -398,10 +419,11 @@ pub fn force_auto(smc: &Smc, fans: &[Fan]) -> Vec<String> {
     if problems.is_empty()
         && smc.exists("Ftst")
         && smc.read("Ftst").ok().and_then(|v| v.as_u32()) == Some(1)
-        && let Err(e) = smc.write("Ftst", &[0]) {
-            problems.push(format!(
-                "could not release thermal-manager unlock (Ftst): {e}"
-            ));
-        }
+        && let Err(e) = smc.write("Ftst", &[0])
+    {
+        problems.push(format!(
+            "could not release thermal-manager unlock (Ftst): {e}"
+        ));
+    }
     problems
 }

@@ -1,0 +1,32 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Check
+        run: ./scripts/check.sh
+      - name: Build app bundle
+        run: ./scripts/build.sh
+      - name: Archive app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent build/Fan.app build/Fan.zip
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Fan-macOS
+          path: build/Fan.zip
+          if-no-files-found: error

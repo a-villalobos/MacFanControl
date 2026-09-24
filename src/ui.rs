@@ -84,7 +84,10 @@ fn mode_badge(mode: FanMode) -> Span<'static> {
         }
         FanMode::System => Span::styled(
             " SYSTEM ",
-            Style::new().fg(Color::Black).bg(Color::Rgb(150, 150, 255)).bold(),
+            Style::new()
+                .fg(Color::Black)
+                .bg(Color::Rgb(150, 150, 255))
+                .bold(),
         ),
         FanMode::Auto => Span::styled(" AUTO ", Style::new().fg(Color::Black).bg(ACCENT).bold()),
     }
@@ -152,12 +155,13 @@ fn draw_fan(
         ));
     }
     if let Some(d) = desired
-        && (d - fan.target).abs() > 1.0 {
-            spans.push(Span::styled(
-                format!(" → {d:.0}"),
-                Style::new().fg(WARM).bold(),
-            ));
-        }
+        && (d - fan.target).abs() > 1.0
+    {
+        spans.push(Span::styled(
+            format!(" → {d:.0}"),
+            Style::new().fg(WARM).bold(),
+        ));
+    }
     spans.push(Span::styled(
         format!("    min {:.0} · max {:.0}", fan.min, fan.max),
         Style::new().fg(DIM),
@@ -209,10 +213,7 @@ fn draw_temps(frame: &mut Frame, area: Rect, app: &App) {
             Style::new().fg(temp_color(app.temps.avg)).bold(),
         ),
         Span::styled("   hottest ", Style::new().fg(DIM)),
-        Span::styled(
-            format!("{t:.1}°C"),
-            Style::new().fg(temp_color(*t)).bold(),
-        ),
+        Span::styled(format!("{t:.1}°C"), Style::new().fg(temp_color(*t)).bold()),
         Span::styled(format!(" ({key})"), Style::new().fg(DIM)),
     ];
     spans.push(Span::styled(
